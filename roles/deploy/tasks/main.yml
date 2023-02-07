@@ -1,0 +1,85 @@
+---
+# tasks file for deploy
+- name: Copy app.zip
+  ansible.builtin.copy:
+    src: ./src/app.zip
+    dest: /home/umbra/test/app.zip
+    mode: u=rw,g=r,o=r
+
+- name: Extract app.zip into /home/umbra/test/
+  ansible.builtin.unarchive:
+    src: ./src/app.zip
+    dest: /home/umbra/test/
+
+- name: Install packages based on package.json.
+  community.general.npm:
+    path: /home/umbra/test/
+
+- name: Extract service into /etc/systemd/system/
+  ansible.builtin.copy:
+    src: ./src/test.service
+    dest: /etc/systemd/system/test.service
+    mode: u=rw,g=r,o=r
+
+- name: Set variables to clone repo manually (not need with playbook)
+  set_fact:
+    tmp_path: "/tmp/app/"
+
+- name: "Clone git repo to host on tmp path"
+  git:
+    repo: 'git@github.com:EpitechMscProPromo2024/T-WEB-600-BDX-6-1-ecommerce-adrien.simon.git'
+    dest: '{{ tmp_path }}'
+    accept_hostkey: "yes"
+    recursive: "no"
+    force: "yes"
+    version: 'master'
+  become: False
+  ignore_errors: true
+  delegate_to: localhost
+  run_once: true
+
+- name: Copy server
+  ansible.builtin.copy:
+    src: '{{ tmp_path }}'
+    dest: /var/www/localhost
+    owner: umbra
+    mode: u=rw,g=r,o=r
+
+- name: install composer
+  shell: |
+    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+    php composer-setup.php
+    php -r "unlink('composer-setup.php');"
+    sudo mv -f composer.phar /usr/local/bin/composer
+
+
+- name: install composer dependencies
+  composer:
+    command: install
+    global_command: false
+    working_dir:  /var/www/localhost/app/server_ecommerce/
+    no_scripts: yes
+    optimize_autoloader: yes
+  environment:
+    SYMFONY_ENV: prod
+  become_user: umbra
+
+- name: Clear symfony cache
+  shell:
+    cmd: APP_ENV=prod APP_DEBUG=0 php bin/console cache:clear
+    chdir: /var/www/localhost/app/server_ecommerce/
+  become_user: umbra
+
+- name: migration
+  shell:
+    cmd: APP_ENV=prod APP_DEBUG=0 php bin/console doctrine:schema:update --force
+    chdir: /var/www/localhost/app/server_ecommerce/
+  become_user: umbra
+
+
+- name: Restart nginx service
+  systemd:
+    name: nginx
+    daemon_reload: "yes"
+    state: restarted
+    enabled: "yes"

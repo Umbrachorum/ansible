@@ -1,0 +1,11 @@
+all:
+  vars:
+    # Required by docker-compose CI pipeline
+    ansible_user: root
+  children:
+    web:
+      vars:
+        ansible_user: umbra
+      hosts:
+        10.134.197.174:
+        10.134.197.189:

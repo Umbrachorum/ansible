@@ -1,0 +1,62 @@
+---
+- name: Update APT Cache
+  apt:
+    update_cache: yes
+    force_apt_get: yes
+
+- name: base
+  become: true
+  apt: name={{ item }} update_cache=yes state=latest
+  with_items:
+    - nginx
+    - composer
+    - php7.4
+    - php7.4-curl
+    - php7.4-xml
+    - apt-transport-https
+    - ca-certificates
+    - emacs-nox
+    - git
+    - curl
+    - unzip
+    - zsh
+  when: ansible_distribution == 'Debian'
+
+- name: change user shell to zsh
+  vars:
+    the_user: "{{ ansible_user_id }}"
+  user:
+    name: "{{ the_user }}"
+    shell: /bin/zsh
+
+- name: Set timezone to Europe/Paris
+  community.general.timezone:
+    name: Europe/Paris
+
+- name: "Install base apt packages"
+  apt:
+    name: "{{ packages }}"
+  vars:
+    packages:
+      - sudo
+
+- name: "Add admin_group group in sudoers and validate it"
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^%ansible'
+    line: '%ansible     ALL=(ALL)   NOPASSWD:ALL'
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Add ansible group
+  group:
+    name: "ansible"
+    state: present
+
+- name: Add ansible user
+  user:
+    name: "ansible"
+    state: present
+    groups:
+      - "ansible"
+    shell: "/bin/bash"

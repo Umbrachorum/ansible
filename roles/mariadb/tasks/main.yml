@@ -1,0 +1,19 @@
+- name: base
+  become: true
+  apt: name={{ item }} update_cache=yes state=latest
+  with_items:
+    - python3-mysqldb
+    - mariadb-server
+  when: ansible_distribution == 'Debian'
+
+- name: Create a new database with name 'e_commerce'
+  community.mysql.mysql_db:
+    name: e_commerce
+    state: present
+
+- name: Create database user with name 'umbra' and password 'root' with all database privileges
+  community.mysql.mysql_user:
+    name: umbra
+    password: root
+    priv: '*.*:ALL'
+    state: present

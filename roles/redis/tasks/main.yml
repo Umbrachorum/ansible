@@ -1,0 +1,7 @@
+---
+- name: redis
+  vars:
+    the_user: "{{ ansible_user_id }}"
+  apt: name={{ item }} update_cache=yes state=latest
+  with_items:
+    - redis
